@@ -103,18 +103,28 @@ export default async function handler(req, res) {
         // Email confirmation.
         const { data: order } = await supabase
           .from('orders')
-          .select('id, subtotal_cents, shipping_cents, tax_cents, total_cents')
+          .select('id, subtotal_cents, shipping_cents, tax_cents, total_cents, currency')
           .eq('id', orderId)
           .maybeSingle();
         const { data: emailItems } = await supabase
           .from('order_items')
-          .select('product_name, variant_name, quantity, line_total_cents')
+          .select(
+            'product_name, variant_name, quantity, unit_price_cents, line_total_cents,' +
+              ' product:products(product_images(url, sort_order))'
+          )
           .eq('order_id', orderId);
+        const itemsWithThumbnails = (emailItems || []).map(({ product, ...item }) => {
+          const images = product?.product_images || [];
+          const primary =
+            images.find((img) => img.sort_order === 0) ||
+            images.slice().sort((a, b) => a.sort_order - b.sort_order)[0];
+          return { ...item, thumbnail_url: primary?.url || null };
+        });
         if (order && (s.customer_details?.email || s.customer_email)) {
           await sendOrderConfirmation({
             to: s.customer_details?.email || s.customer_email,
             order,
-            items: emailItems || [],
+            items: itemsWithThumbnails,
           });
         }
         break;

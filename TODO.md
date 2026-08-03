@@ -97,7 +97,7 @@ Allow drag-and-drop reordering of product images so the first image (used as the
 ---
 
 ### 10. Customer — Order Confirmation Email Enhancement
-**Status:** ⬜ Not started — `resend.js` still sends a plain-text-only email (no HTML, no thumbnails).
+**Status:** ✅ Done — `sendOrderConfirmation` now sends both `text` (unchanged, for clients that need it) and a new inline-styled `html` receipt: a table-based layout (for email-client compatibility) with a thumbnail, name/variant, qty × unit price, and line total per item, plus a subtotal/shipping/tax/total summary. The Stripe webhook (`api/webhooks/stripe.js`) now fetches each item's `unit_price_cents` and `sort_order = 0` product thumbnail (same resolution pattern as #2) and the order's `currency` to feed the template. All dynamic text is HTML-escaped.
 **File:** `src/lib/resend.js`  
 Include product thumbnails and an itemized line-item table in the order confirmation email so customers have a visual receipt directly in their inbox.
 
