@@ -102,6 +102,12 @@ export default function NewProductPage() {
               required
               value={form.base_price_cents}
               onChange={(e) => setForm({ ...form, base_price_cents: e.target.value })}
+              onBlur={(e) => {
+                const num = Number(e.target.value);
+                if (e.target.value !== '' && !isNaN(num)) {
+                  setForm((f) => ({ ...f, base_price_cents: num.toFixed(2) }));
+                }
+              }}
             />
           </div>
         </div>

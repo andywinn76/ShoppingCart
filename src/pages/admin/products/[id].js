@@ -185,7 +185,15 @@ export default function EditProductPage({ product, categories }) {
               label="Base price (USD)"
               value={form.base_price_cents}
               onChange={(v) => setForm({ ...form, base_price_cents: v })}
+              onBlur={(v) => {
+                const num = Number(v);
+                if (v !== '' && !isNaN(num)) {
+                  setForm((f) => ({ ...f, base_price_cents: num.toFixed(2) }));
+                }
+              }}
               type="number"
+              step="0.01"
+              min="0"
             />
             <div>
               <label className="label">Category</label>
@@ -379,15 +387,18 @@ export default function EditProductPage({ product, categories }) {
   );
 }
 
-function Field({ label, value, onChange, type = 'text' }) {
+function Field({ label, value, onChange, onBlur, type = 'text', step, min }) {
   return (
     <div>
       <label className="label">{label}</label>
       <input
         className="input"
         type={type}
+        step={step}
+        min={min}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur ? (e) => onBlur(e.target.value) : undefined}
       />
     </div>
   );

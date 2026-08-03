@@ -109,6 +109,20 @@ Add checkboxes to the admin orders table to select multiple orders at once, enab
 
 ---
 
+## 🐛 Bugs / Polish
+
+### 12. Admin — Base Price Decimal Display
+**Status:** ✅ Done — both `new.js` and `[id].js` now format the Base price field to 2 decimals (`Number(value).toFixed(2)`) `onBlur`, while leaving the raw value editable while focused. The shared `Field` component in `[id].js` gained `onBlur`/`step`/`min` props (previously only `value`/`onChange`/`type`) so the edit page's price input now also has `step="0.01" min="0"`, matching the new-product form.
+**File:** `src/pages/admin/products/new.js` (same pattern also in `src/pages/admin/products/[id].js`)
+On the "Add new product" form, the Base price (USD) field doesn't display trailing decimals properly -- typing `0.1` stays `0.1` instead of showing `0.10`.
+
+- It's a native `<input type="number" step="0.01">` bound directly to the raw string the user typed, so nothing reformats it
+- Format to 2 decimal places on blur (e.g. `Number(value).toFixed(2)`), while keeping the raw editable value while the field is focused
+- Apply the same fix on the product edit page's Base price field (`admin/products/[id].js`), which has the identical issue, for consistency
+- Display-only fix -- the value sent to the API is already correctly cent-rounded via `Math.round(Number(form.base_price_cents) * 100)` and shouldn't change
+
+---
+
 ## 🗄️ Schema / Infrastructure Notes
 
 - The `order_items` table already snapshots `product_id` — the product thumbnail join for feature #2 can be done via a Supabase nested select without schema changes
