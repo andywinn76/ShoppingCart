@@ -24,6 +24,9 @@ export default function AdminOrders({ orders: initial }) {
   const [error, setError] = useState('');
   const [statusBusyId, setStatusBusyId] = useState(null);
   const [statusError, setStatusError] = useState({});
+  const [selected, setSelected] = useState(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState('');
 
   async function changeStatus(order, status) {
     setStatusBusyId(order.id);
@@ -60,6 +63,84 @@ export default function AdminOrders({ orders: initial }) {
     } else {
       setError(data.error || 'Could not delete order.');
     }
+  }
+
+  function toggleSelected(id) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelected((prev) => (prev.size === orders.length ? new Set() : new Set(orders.map((o) => o.id))));
+  }
+
+  async function bulkChangeStatus(status) {
+    const targets = orders.filter(
+      (o) => selected.has(o.id) && ALLOWED_TRANSITIONS[o.status]?.includes(status)
+    );
+    const skipped = selected.size - targets.length;
+    if (targets.length === 0) {
+      setBulkMessage(`No selected orders can move to "${status}" from their current status.`);
+      return;
+    }
+    setBulkBusy(true);
+    setBulkMessage('');
+    const results = await Promise.all(
+      targets.map((o) =>
+        fetch(`/api/admin/orders/${o.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status }),
+        }).then((res) => ({ id: o.id, ok: res.ok }))
+      )
+    );
+    setBulkBusy(false);
+    const succeededIds = new Set(results.filter((r) => r.ok).map((r) => r.id));
+    setOrders((prev) =>
+      prev.map((o) => (succeededIds.has(o.id) ? { ...o, status } : o))
+    );
+    setSelected(new Set());
+    const failed = targets.length - succeededIds.size;
+    setBulkMessage(
+      `Updated ${succeededIds.size} order${succeededIds.size === 1 ? '' : 's'} to "${status}".` +
+        (skipped > 0 ? ` ${skipped} skipped (invalid transition for their status).` : '') +
+        (failed > 0 ? ` ${failed} failed.` : '')
+    );
+  }
+
+  async function bulkDelete() {
+    const targets = orders.filter(
+      (o) => selected.has(o.id) && ['pending', 'cancelled'].includes(o.status)
+    );
+    const skipped = selected.size - targets.length;
+    if (targets.length === 0) {
+      setBulkMessage('Selected orders are not pending/cancelled -- delete those individually to confirm.');
+      return;
+    }
+    if (!confirm(`Delete ${targets.length} order${targets.length === 1 ? '' : 's'}? This cannot be undone.`)) {
+      return;
+    }
+    setBulkBusy(true);
+    setBulkMessage('');
+    const results = await Promise.all(
+      targets.map((o) =>
+        fetch(`/api/admin/orders/${o.id}`, { method: 'DELETE' }).then((res) => ({ id: o.id, ok: res.ok }))
+      )
+    );
+    setBulkBusy(false);
+    const deletedIds = new Set(results.filter((r) => r.ok).map((r) => r.id));
+    setOrders((prev) => prev.filter((o) => !deletedIds.has(o.id)));
+    setSelected(new Set());
+    const failed = targets.length - deletedIds.size;
+    setBulkMessage(
+      `Deleted ${deletedIds.size} order${deletedIds.size === 1 ? '' : 's'}.` +
+        (skipped > 0 ? ` ${skipped} skipped (not pending/cancelled -- delete individually to confirm).` : '') +
+        (failed > 0 ? ` ${failed} failed.` : '')
+    );
   }
 
   function exportCsv() {
@@ -114,10 +195,49 @@ export default function AdminOrders({ orders: initial }) {
         </button>
       </div>
 
+      {selected.size > 0 && (
+        <div className="card mt-4 flex flex-wrap items-center gap-3 p-3">
+          <span className="text-sm font-medium">{selected.size} selected</span>
+          <button
+            className="btn-outline text-sm"
+            onClick={() => bulkChangeStatus('fulfilled')}
+            disabled={bulkBusy}
+          >
+            Mark fulfilled
+          </button>
+          <button
+            className="btn-outline text-sm"
+            onClick={() => bulkChangeStatus('cancelled')}
+            disabled={bulkBusy}
+          >
+            Cancel orders
+          </button>
+          <button
+            className="btn-outline border-red-300 text-sm text-red-600 hover:bg-red-50"
+            onClick={bulkDelete}
+            disabled={bulkBusy}
+          >
+            Delete selected
+          </button>
+          <button className="text-sm text-slate-500 hover:underline" onClick={() => setSelected(new Set())}>
+            Clear selection
+          </button>
+          {bulkBusy && <span className="text-xs text-slate-500">Working...</span>}
+        </div>
+      )}
+      {bulkMessage && <p className="mt-2 text-sm text-slate-600">{bulkMessage}</p>}
+
       <div className="card mt-6 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
             <tr>
+              <th className="p-3">
+                <input
+                  type="checkbox"
+                  checked={orders.length > 0 && selected.size === orders.length}
+                  onChange={toggleSelectAll}
+                />
+              </th>
               <th className="p-3">Order</th>
               <th className="p-3">Customer</th>
               <th className="p-3">Items</th>
@@ -130,6 +250,13 @@ export default function AdminOrders({ orders: initial }) {
           <tbody>
             {orders.map((o) => (
               <tr key={o.id} className="border-b border-slate-100 align-top">
+                <td className="p-3">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(o.id)}
+                    onChange={() => toggleSelected(o.id)}
+                  />
+                </td>
                 <td className="p-3 font-mono text-xs">
                   <Link href={`/admin/orders/${o.id}`} className="text-brand-600 hover:underline">
                     #{o.id.slice(0, 8)}
@@ -188,7 +315,7 @@ export default function AdminOrders({ orders: initial }) {
             ))}
             {orders.length === 0 && (
               <tr>
-                <td colSpan={7} className="p-6 text-center text-slate-500">
+                <td colSpan={8} className="p-6 text-center text-slate-500">
                   No orders yet.
                 </td>
               </tr>

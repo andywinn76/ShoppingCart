@@ -104,7 +104,7 @@ Include product thumbnails and an itemized line-item table in the order confirma
 ---
 
 ### 11. Admin — Bulk Order Actions
-**Status:** ⬜ Not started
+**Status:** ✅ Done — `admin/orders.js` has a checkbox per row (plus select-all) and a bulk action bar that appears once anything is selected: "Mark fulfilled", "Cancel orders", and "Delete selected". Each action only applies to orders where it's actually valid for their *current* status (via `ALLOWED_TRANSITIONS` for status changes; `pending`/`cancelled` only for delete, matching the single-row delete guard) -- others in the selection are silently skipped and reported in a summary message (e.g. "Updated 8 orders to fulfilled. 2 skipped (invalid transition)."). Bulk delete has no force option; orders needing a forced delete must be handled individually via the existing confirm-modal flow.
 Add checkboxes to the admin orders table to select multiple orders at once, enabling bulk status updates (e.g., mark 10 orders as fulfilled) or bulk delete of stale pending orders.
 
 ---
