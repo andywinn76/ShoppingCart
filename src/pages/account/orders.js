@@ -1,11 +1,14 @@
+import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/router';
 import { FiImage } from 'react-icons/fi';
 import { getServerSession } from 'next-auth/next';
 import Layout from '@/components/Layout';
 import { authOptions } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { formatMoney } from '@/lib/format';
+import { useCart } from '@/context/CartContext';
 
 export async function getServerSideProps(ctx) {
   const session = await getServerSession(ctx.req, ctx.res, authOptions);
@@ -17,22 +20,48 @@ export async function getServerSideProps(ctx) {
     .from('orders')
     .select(
       'id, status, total_cents, currency, created_at,' +
-        ' order_items(product_name, variant_name, quantity, product:products(product_images(url, alt, sort_order)))'
+        ' order_items(product_id, variant_id, product_name, variant_name, quantity,' +
+        ' product:products(name, product_type, active, base_price_cents, product_images(url, alt, sort_order)),' +
+        ' variant:product_variants(name, price_cents, inventory, active))'
     )
     .eq('email', session.user.email.toLowerCase())
     .order('created_at', { ascending: false })
     .limit(50);
 
-  // Attach each line item's primary (sort_order 0, or lowest available) thumbnail
-  // and drop the rest of the nested image data so the client only gets what it renders.
+  // Resolve each line item's thumbnail and current buy-again availability from
+  // today's product/variant state -- not the order's snapshot fields, which
+  // only reflect what was true at checkout time.
   const withThumbnails = (orders || []).map((o) => ({
     ...o,
-    order_items: o.order_items.map(({ product, ...item }) => {
+    order_items: o.order_items.map(({ product, variant, ...item }) => {
       const images = product?.product_images || [];
       const primary =
         images.find((img) => img.sort_order === 0) ||
         images.slice().sort((a, b) => a.sort_order - b.sort_order)[0];
-      return { ...item, thumbnail: primary ? { url: primary.url, alt: primary.alt } : null };
+
+      const available =
+        !!variant &&
+        variant.active &&
+        !!product &&
+        product.active &&
+        (product.product_type === 'digital' || variant.inventory > 0);
+
+      return {
+        ...item,
+        thumbnail: primary ? { url: primary.url, alt: primary.alt } : null,
+        available,
+        reorder: available
+          ? {
+              variant_id: item.variant_id,
+              product_id: item.product_id,
+              product_name: product.name,
+              variant_name: variant.name,
+              unit_price_cents: variant.price_cents ?? product.base_price_cents,
+              product_type: product.product_type,
+              image: primary?.url || null,
+            }
+          : null,
+      };
     }),
   }));
 
@@ -40,6 +69,28 @@ export async function getServerSideProps(ctx) {
 }
 
 export default function OrdersPage({ orders }) {
+  const { addItem } = useCart();
+  const router = useRouter();
+  const [message, setMessage] = useState({});
+
+  function buyAgain(order) {
+    const available = order.order_items.filter((i) => i.available);
+    available.forEach((i) => addItem({ ...i.reorder, quantity: i.quantity }));
+
+    const skipped = order.order_items.length - available.length;
+    if (available.length === 0) {
+      setMessage((prev) => ({ ...prev, [order.id]: 'None of these items are available anymore.' }));
+      return;
+    }
+    setMessage((prev) => ({
+      ...prev,
+      [order.id]:
+        skipped > 0
+          ? `Added ${available.length} of ${order.order_items.length} items to your cart -- ${skipped} no longer available.`
+          : `Added ${available.length} item${available.length === 1 ? '' : 's'} to your cart.`,
+    }));
+  }
+
   return (
     <Layout title="Order history">
       <div className="mx-auto max-w-3xl px-4 py-8">
@@ -92,6 +143,28 @@ export default function OrdersPage({ orders }) {
                     </li>
                   ))}
                 </ul>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    className="btn-outline text-sm"
+                    onClick={() => buyAgain(o)}
+                    disabled={!o.order_items.some((i) => i.available)}
+                  >
+                    Buy again
+                  </button>
+                  {message[o.id] && (
+                    <p className="text-xs text-slate-600">
+                      {message[o.id]}{' '}
+                      {o.order_items.some((i) => i.available) && (
+                        <button
+                          onClick={() => router.push('/cart')}
+                          className="text-brand-600 hover:underline"
+                        >
+                          View cart
+                        </button>
+                      )}
+                    </p>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

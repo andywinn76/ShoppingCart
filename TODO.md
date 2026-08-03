@@ -84,7 +84,7 @@ Add an "Export CSV" button to `src/pages/admin/orders.js` that downloads all vis
 ---
 
 ### 8. Account — Re-order Button
-**Status:** ⬜ Not started
+**Status:** ✅ Done — `account/orders.js` now joins current `product:products(...)` and `variant:product_variants(...)` state per line item (not just the order's snapshot fields) to compute live availability (variant + product active, and in-stock unless digital). Each order has a "Buy again" button that adds only the still-available items to the cart via `useCart().addItem`, using today's price (`variant.price_cents ?? product.base_price_cents`) rather than the historical price paid. Shows an inline summary ("Added 2 of 3 items -- 1 no longer available") with a "View cart" link; disabled entirely if nothing in the order is available anymore.
 On the account order history page, add a "Buy again" button that pushes all items from a past order back into the cart (checking current inventory/availability first).
 
 ---
