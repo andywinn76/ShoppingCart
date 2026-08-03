@@ -112,7 +112,7 @@ Add checkboxes to the admin orders table to select multiple orders at once, enab
 ## 🐛 Bugs / Polish
 
 ### 12. Admin — Base Price Decimal Display
-**Status:** ✅ Done — both `new.js` and `[id].js` now format the Base price field to 2 decimals (`Number(value).toFixed(2)`) `onBlur`, while leaving the raw value editable while focused. The shared `Field` component in `[id].js` gained `onBlur`/`step`/`min` props (previously only `value`/`onChange`/`type`) so the edit page's price input now also has `step="0.01" min="0"`, matching the new-product form.
+**Status:** ✅ Done — both `new.js` and `[id].js` format the Base price field to 2 decimals (`Number(value).toFixed(2)`) on blur, while leaving the raw value editable while typing. Also covers the spinner-arrow/keyboard-arrow case (e.g. `0.09` + up-arrow -> `0.1` instead of `0.10`): a ref distinguishes "the last DOM change came from a keydown" (typing -- keep raw) from "no keydown preceded it" (spinner click or Up/Down arrow key -- reformat immediately), since the native stepper drops trailing zeros and doesn't wait for blur. The shared `Field` component in `[id].js` gained `onBlur`/`onKeyDown`/`step`/`min` props (previously only `value`/`onChange`/`type`).
 **File:** `src/pages/admin/products/new.js` (same pattern also in `src/pages/admin/products/[id].js`)
 On the "Add new product" form, the Base price (USD) field doesn't display trailing decimals properly -- typing `0.1` stays `0.1` instead of showing `0.10`.
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -50,6 +50,10 @@ export default function EditProductPage({ product, categories }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [dragIdx, setDragIdx] = useState(null);
+  // See the matching comment in admin/products/new.js: distinguishes typing
+  // (keep the raw string) from spinner-button/arrow-key steps (reformat
+  // immediately, since native stepping drops trailing zeros).
+  const priceTypingRef = useRef(false);
 
   async function saveDetails() {
     setBusy(true);
@@ -184,7 +188,21 @@ export default function EditProductPage({ product, categories }) {
             <Field
               label="Base price (USD)"
               value={form.base_price_cents}
-              onChange={(v) => setForm({ ...form, base_price_cents: v })}
+              onKeyDown={(e) => {
+                priceTypingRef.current = e.key !== 'ArrowUp' && e.key !== 'ArrowDown';
+              }}
+              onChange={(v) => {
+                if (priceTypingRef.current) {
+                  setForm((f) => ({ ...f, base_price_cents: v }));
+                } else {
+                  const num = Number(v);
+                  setForm((f) => ({
+                    ...f,
+                    base_price_cents: v !== '' && !isNaN(num) ? num.toFixed(2) : v,
+                  }));
+                }
+                priceTypingRef.current = false;
+              }}
               onBlur={(v) => {
                 const num = Number(v);
                 if (v !== '' && !isNaN(num)) {
@@ -387,7 +405,7 @@ export default function EditProductPage({ product, categories }) {
   );
 }
 
-function Field({ label, value, onChange, onBlur, type = 'text', step, min }) {
+function Field({ label, value, onChange, onBlur, onKeyDown, type = 'text', step, min }) {
   return (
     <div>
       <label className="label">{label}</label>
@@ -399,6 +417,7 @@ function Field({ label, value, onChange, onBlur, type = 'text', step, min }) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur ? (e) => onBlur(e.target.value) : undefined}
+        onKeyDown={onKeyDown}
       />
     </div>
   );

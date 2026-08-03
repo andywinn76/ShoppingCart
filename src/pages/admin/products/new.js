@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import AdminLayout, { withAdmin } from '@/components/AdminLayout';
@@ -18,6 +18,12 @@ export default function NewProductPage() {
   });
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
+  // Tracks whether the current change came from typing a character (keep the
+  // raw string so the user can keep editing) vs. the spinner buttons/arrow
+  // keys (which fire a change with no corresponding "typing" keydown -- those
+  // get reformatted immediately, since the browser's native stepping drops
+  // trailing zeros, e.g. 0.09 + step -> "0.1" instead of "0.10").
+  const priceTypingRef = useRef(false);
 
   function onName(v) {
     setForm((f) => ({
@@ -101,7 +107,24 @@ export default function NewProductPage() {
               min="0"
               required
               value={form.base_price_cents}
-              onChange={(e) => setForm({ ...form, base_price_cents: e.target.value })}
+              onKeyDown={(e) => {
+                priceTypingRef.current = e.key !== 'ArrowUp' && e.key !== 'ArrowDown';
+              }}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (priceTypingRef.current) {
+                  setForm((f) => ({ ...f, base_price_cents: raw }));
+                } else {
+                  const num = Number(raw);
+                  setForm((f) => ({
+                    ...f,
+                    base_price_cents: raw !== '' && !isNaN(num) ? num.toFixed(2) : raw,
+                  }));
+                }
+                // Reset so a spinner click (which fires no keydown) after a
+                // keystroke doesn't inherit "typing" mode from the stale ref.
+                priceTypingRef.current = false;
+              }}
               onBlur={(e) => {
                 const num = Number(e.target.value);
                 if (e.target.value !== '' && !isNaN(num)) {
