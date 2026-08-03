@@ -173,9 +173,9 @@ src/
     search.js
     cart.js
     checkout/        success + cancel
-    account/         Customer account area
+    account/         Customer account area (orders/[id].js = receipt + buy again)
     auth/            Sign in / register
-    admin/           Admin-only dashboard
+    admin/           Admin-only dashboard (orders/[id].js = order detail)
     api/             API routes
       auth/[...nextauth].js
       register.js
@@ -184,6 +184,7 @@ src/
       account/{addresses,profile}.js
       admin/products/...
       admin/variants/[id].js
+      admin/orders/[id].js  (PATCH status, DELETE)
   components/        UI building blocks
   context/           CartContext (localStorage-backed)
   lib/               Server/client helpers for each service
@@ -198,8 +199,8 @@ supabase/
 
 - **More payment options**: Stripe already supports Apple Pay / Google Pay through Checkout. To add **PayPal**, integrate `@paypal/react-paypal-js` and add a parallel webhook handler.
 - **Carrier shipping rates**: replace `lib/shipping.js` with a Shippo or EasyPost integration.
-- **Customer reviews**: a `POST /api/reviews` route is the next obvious add; the schema and product page UI already support it.
-- **Email templates**: swap the plain-text body in `lib/resend.js` for a React Email template.
+- **Customer reviews**: reviews display on the product page, but there's no submission path yet -- a `POST /api/reviews` route is the next obvious add; the schema already supports it.
+- **Email templates**: `lib/resend.js` sends an inline-styled HTML receipt alongside the plain-text body; swapping in a React Email template would make it easier to maintain as it grows.
 - **Internationalization / multi-currency**: each `products.currency` already exists; build a switcher and pass currency through to Stripe per cart.
 
 
