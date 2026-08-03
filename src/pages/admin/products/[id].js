@@ -49,6 +49,7 @@ export default function EditProductPage({ product, categories }) {
   );
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  const [dragIdx, setDragIdx] = useState(null);
 
   async function saveDetails() {
     setBusy(true);
@@ -96,6 +97,20 @@ export default function EditProductPage({ product, categories }) {
         });
       // Add an optimistic entry immediately so the thumbnail appears at once.
       return [...prev, { ...img, id: null, sort_order: sortOrder }];
+    });
+  }
+  function moveImage(fromIdx, toIdx) {
+    setImages((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, moved);
+      const order = next.filter((img) => img.id).map((img) => img.id);
+      fetch(`/api/admin/products/${product.id}/images`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order }),
+      });
+      return next;
     });
   }
   async function removeImage(id) {
@@ -223,10 +238,37 @@ export default function EditProductPage({ product, categories }) {
             <h2 className="font-semibold">Photos</h2>
             <ImageUploader onUpload={addImage}>+ Upload</ImageUploader>
           </div>
+          <p className="mt-1 text-xs text-slate-500">
+            Drag to reorder. The first photo is used as the thumbnail everywhere.
+          </p>
           <div className="mt-4 grid grid-cols-3 gap-3">
             {images.map((img, idx) => (
-              <div key={img.id ?? `pending-${idx}`} className="group relative aspect-square overflow-hidden rounded bg-slate-100">
+              <div
+                key={img.id ?? `pending-${idx}`}
+                draggable={!!img.id}
+                onDragStart={() => setDragIdx(idx)}
+                onDragOver={(e) => {
+                  if (dragIdx !== null) e.preventDefault();
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (dragIdx === null || dragIdx === idx) return;
+                  moveImage(dragIdx, idx);
+                  setDragIdx(null);
+                }}
+                onDragEnd={() => setDragIdx(null)}
+                className={
+                  'group relative aspect-square overflow-hidden rounded bg-slate-100' +
+                  (img.id ? ' cursor-move' : '') +
+                  (dragIdx === idx ? ' opacity-40' : '')
+                }
+              >
                 <Image src={img.url} alt="" fill className="object-cover" />
+                {idx === 0 && (
+                  <span className="absolute left-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                    Cover
+                  </span>
+                )}
                 {img.id ? (
                   <button
                     onClick={() => removeImage(img.id)}

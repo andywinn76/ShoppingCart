@@ -90,7 +90,7 @@ On the account order history page, add a "Buy again" button that pushes all item
 ---
 
 ### 9. Admin — Product Image Reordering
-**Status:** ⬜ Not started — `admin/products/[id].js` supports upload/remove but images render in `sort_order` with no reordering UI.
+**Status:** ✅ Done — `admin/products/[id].js` image grid supports native HTML5 drag-and-drop reordering (no new dependency); dropping an image moves it locally and calls the new `PATCH /api/admin/products/[id]/images` handler with the full ordered id list, which rewrites `sort_order` to match. The first image is labeled "Cover" since it's what's used as the thumbnail everywhere. Images still uploading (no id yet) aren't draggable.
 **File:** `src/pages/admin/products/[id].js`  
 Allow drag-and-drop reordering of product images so the first image (used as the thumbnail everywhere) can be easily controlled. Currently images are ordered by `sort_order` integer; add a drag UI to update those values.
 

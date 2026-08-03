@@ -27,6 +27,25 @@ export default async function handler(req, res) {
     return res.status(200).json({ image: data });
   }
 
+  if (req.method === 'PATCH') {
+    // Reorder: body.order is an array of image ids in their new display order.
+    // sort_order is set to each id's index in that array, scoped to this product
+    // so a stray/foreign id can't touch another product's images.
+    const { order } = req.body || {};
+    if (!Array.isArray(order) || order.length === 0) {
+      return res.status(400).json({ error: 'order (array of image ids) required' });
+    }
+    for (let i = 0; i < order.length; i++) {
+      const { error } = await supabase
+        .from('product_images')
+        .update({ sort_order: i })
+        .eq('id', order[i])
+        .eq('product_id', id);
+      if (error) return res.status(500).json({ error: error.message });
+    }
+    return res.status(200).json({ ok: true });
+  }
+
   if (req.method === 'DELETE') {
     const imageId = req.query.id;
     // Find the image first so we can clean up Cloudinary.
